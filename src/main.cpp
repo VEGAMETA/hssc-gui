@@ -1,21 +1,19 @@
 
-#include "../imgui.h"
 #include "../imgui_impl_sdl3.h"
 #include "../imgui_impl_sdlrenderer3.h"
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_video.h>
 #include <algorithm>
-#include <cmath>
-#include <stdio.h>
+#include <array>
+#include <fcntl.h>
+#include <spawn.h>
+#include <stdexcept>
+#include <thread>
+#include <unistd.h>
+#include <vector>
 
 using namespace std;
-#include <array>
-#include <cstdlib>
-#include <memory>
-#include <stdexcept>
-#include <stdio.h>
-#include <string>
-#include <vector>
+
+extern char **environ;
 
 vector<string> split_string(string str, const string &delimiter) {
   vector<string> strings;
@@ -27,10 +25,32 @@ vector<string> split_string(string str, const string &delimiter) {
     prev = pos + delimiter.size();
   }
 
-  // To get the last substring (or only, if delimiter is not found)
   strings.push_back(str.substr(prev));
 
   return strings;
+}
+
+void exec_th(string arg, string value) {
+  pid_t pid;
+  posix_spawn_file_actions_t file_actions;
+
+  posix_spawn_file_actions_init(&file_actions);
+  posix_spawn_file_actions_addopen(&file_actions, STDOUT_FILENO, "/dev/null",
+                                   O_WRONLY, 0);
+  posix_spawn_file_actions_addopen(&file_actions, STDERR_FILENO, "/dev/null",
+                                   O_WRONLY, 0);
+
+  const char *argv[] = {"hssc", arg.c_str(), value.c_str(), nullptr};
+
+  posix_spawn(&pid, "/usr/bin/hssc", &file_actions, nullptr,
+              (char *const *)argv, environ);
+
+  posix_spawn_file_actions_destroy(&file_actions);
+}
+
+void exec(string arg, float value) {
+  exec_th("--" + arg, to_string(value));
+  this_thread::sleep_for(chrono::milliseconds(30));
 }
 
 string exec(const char *cmd) {
@@ -44,10 +64,6 @@ string exec(const char *cmd) {
   return result;
 }
 
-void exec(string arg, float value) {
-  system(("hssc --" + arg + " " + to_string(value)).c_str());
-}
-
 float get_arg(vector<string> lines, string arg, float default_v = 1.0f) {
   for (auto line : lines) {
     vector<string> kv = split_string(line, "=");
@@ -58,70 +74,27 @@ float get_arg(vector<string> lines, string arg, float default_v = 1.0f) {
   }
   return default_v;
 }
+
 void SetCustomImGuiStyle() {
   ImGuiStyle &style = ImGui::GetStyle();
 
-  // Настройка основных параметров
   style.WindowRounding = 13.0f;
   style.FrameRounding = 7.3f;
-  style.ScrollbarRounding = 5.0f;
+  style.ScrollbarSize = 1.5f;
   style.GrabRounding = 2.3f;
   style.WindowBorderSize = 1.0f;
   style.FrameBorderSize = 1.0f;
 
   ImVec4 *colors = style.Colors;
 
-  // Фон окна
   colors[ImGuiCol_WindowBg] = ImVec4(0.1f, 0.105f, 0.11f, 1.0f);
-
-  // Основные цвета
-  colors[ImGuiCol_Header] = ImVec4(0.2f, 0.205f, 0.21f, 1.0f);
-  colors[ImGuiCol_HeaderHovered] = ImVec4(0.3f, 0.305f, 0.31f, 1.0f);
-  colors[ImGuiCol_HeaderActive] = ImVec4(0.15f, 0.1505f, 0.151f, 1.0f);
-
-  // Кнопки
-  colors[ImGuiCol_Button] = ImVec4(0.2f, 0.205f, 0.21f, 1.0f);
-  colors[ImGuiCol_ButtonHovered] = ImVec4(0.3f, 0.305f, 0.31f, 1.0f);
-  colors[ImGuiCol_ButtonActive] = ImVec4(0.15f, 0.1505f, 0.151f, 1.0f);
-
-  // Текст
   colors[ImGuiCol_Text] = ImVec4(0.86f, 0.93f, 0.89f, 1.0f);
   colors[ImGuiCol_TextDisabled] = ImVec4(0.40f, 0.40f, 0.40f, 1.0f);
-
   colors[ImGuiCol_FrameBg] = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
   colors[ImGuiCol_FrameBgHovered] = ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
   colors[ImGuiCol_FrameBgActive] = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
   colors[ImGuiCol_SliderGrab] = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
   colors[ImGuiCol_SliderGrabActive] = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
-
-  // Рамки
-  colors[ImGuiCol_Border] = ImVec4(0.3f, 0.305f, 0.31f, 1.0f);
-  colors[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-
-  // Scrollbar
-  colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.39f);
-  colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.2f, 0.205f, 0.21f, 1.0f);
-  colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.3f, 0.305f, 0.31f, 1.0f);
-  colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.15f, 0.1505f, 0.151f, 1.0f);
-
-  // Подсветка и курсоры
-  colors[ImGuiCol_CheckMark] = ImVec4(0.35f, 0.75f, 0.50f, 1.0f);
-  colors[ImGuiCol_SliderGrab] = ImVec4(0.35f, 0.75f, 0.50f, 1.0f);
-  colors[ImGuiCol_SliderGrabActive] = ImVec4(0.45f, 0.85f, 0.60f, 1.0f);
-
-  colors[ImGuiCol_TitleBg] = ImVec4(0.05f, 0.05f, 0.1f, 1.0f);
-  colors[ImGuiCol_TitleBgActive] = ImVec4(0.15f, 0.15f, 0.25f, 1.0f);
-
-  colors[ImGuiCol_ResizeGrip] = ImVec4(0.2f, 0.205f, 0.21f, 1.0f);
-  colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.3f, 0.305f, 0.31f, 1.0f);
-  colors[ImGuiCol_ResizeGripActive] = ImVec4(0.15f, 0.1505f, 0.151f, 1.0f);
-
-  colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
-
-  // Выделение
-  colors[ImGuiCol_Separator] = ImVec4(0.3f, 0.305f, 0.31f, 1.0f);
-  colors[ImGuiCol_SeparatorHovered] = ImVec4(0.4f, 0.405f, 0.41f, 1.0f);
-  colors[ImGuiCol_SeparatorActive] = ImVec4(0.5f, 0.505f, 0.51f, 1.0f);
 }
 // Main code
 int main(int und_pos, char **) {
@@ -133,8 +106,7 @@ int main(int und_pos, char **) {
   float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
   SDL_WindowFlags window_flags =
       SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-  SDL_Window *window = SDL_CreateWindow("Dear ImGui SDL3+SDL_Renderer example",
-                                        (int)(537 * main_scale),
+  SDL_Window *window = SDL_CreateWindow("HSSC GUI", (int)(537 * main_scale),
                                         (int)(337 * main_scale), window_flags);
   if (window == nullptr) {
     printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
@@ -171,10 +143,9 @@ int main(int und_pos, char **) {
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
   vector<string> lines = split_string(exec("hssc"), "\n");
-  lines.erase(
-      std::remove_if(lines.begin(), lines.end(),
-                     [](string x) { return x.find('=') == std::string::npos; }),
-      lines.end());
+  lines.erase(remove_if(lines.begin(), lines.end(),
+                        [](string x) { return x.find('=') == string::npos; }),
+              lines.end());
 
   static float temperature = get_arg(lines, "temperature", 6400.0f);
   static float brightness = get_arg(lines, "brightness");
@@ -199,7 +170,7 @@ int main(int und_pos, char **) {
         done = true;
     }
     if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
-      SDL_Delay(10);
+      SDL_Delay(16);
       continue;
     }
 
@@ -217,41 +188,41 @@ int main(int und_pos, char **) {
     {
       if (ImGui::DragFloat("temperature", &temperature, 50.0f, 1000.0f,
                            50000.0f, "%.1f")) {
-        temperature = std::clamp(temperature, 1000.0f, 50000.0f);
+        temperature = clamp(temperature, 1000.0f, 50000.0f);
         exec("temperature", temperature);
       }
       if (ImGui::DragFloat("brightness", &brightness, 0.001f, 0.1f, 5.0f,
                            "%.5f")) {
-        brightness = std::clamp(brightness, 0.1f, 5.0f);
+        brightness = clamp(brightness, 0.1f, 5.0f);
         exec("brightness", brightness);
       }
       if (ImGui::DragFloat("contrast", &contrast, 0.001f, 0.0f, 5.0f, "%.5f")) {
-        contrast = std::clamp(contrast, 0.0f, 5.0f);
+        contrast = clamp(contrast, 0.0f, 5.0f);
         exec("contrast", contrast);
       }
       if (ImGui::DragFloat("gamma", &gamma, 0.001f, 0.1f, 5.0f, "%.5f")) {
-        gamma = std::clamp(gamma, 0.1f, 5.0f);
+        gamma = clamp(gamma, 0.1f, 5.0f);
         exec("gamma", gamma);
       }
       if (ImGui::DragFloat("hue", &hue, 0.001f, -1.0f, 1.0f, "%.5f")) {
-        hue = std::clamp(hue, -1.0f, 1.0f);
+        hue = clamp(hue, -1.0f, 1.0f);
         exec("hue", hue);
       }
       if (ImGui::DragFloat("saturation", &saturation, 0.001f, 0.0f, 5.0f,
                            "%.5f")) {
-        saturation = std::clamp(saturation, 0.0f, 5.0f);
+        saturation = clamp(saturation, 0.0f, 5.0f);
         exec("saturation", saturation);
       }
       if (ImGui::DragFloat("red", &red, 0.001f, 0.0f, 5.0f, "%.5f")) {
-        red = std::clamp(red, 0.0f, 5.0f);
+        red = clamp(red, 0.0f, 5.0f);
         exec("red", red);
       }
       if (ImGui::DragFloat("green", &green, 0.001f, 0.0f, 5.0f, "%.5f")) {
-        green = std::clamp(green, 0.0f, 5.0f);
+        green = clamp(green, 0.0f, 5.0f);
         exec("green", green);
       }
       if (ImGui::DragFloat("blue", &blue, 0.001f, 0.0f, 5.0f, "%.5f")) {
-        blue = std::clamp(blue, 0.0f, 5.0f);
+        blue = clamp(blue, 0.0f, 5.0f);
         exec("blue", blue);
       }
     }

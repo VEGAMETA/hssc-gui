@@ -1,16 +1,10 @@
-#
-# Cross Platform Makefile
-# Compatible with MSYS2/MINGW, Ubuntu 14.04.1 and Mac OS X
-#
-# You will need SDL3 (http://www.libsdl.org) which is still unreleased/unpackaged.
-
 #CXX = g++
 #CXX = clang++
 
 EXE = hssc-gui
 IMGUI_DIR = ..
 SOURCES = main.cpp
-SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
+SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/imgui_impl_sdl3.cpp $(IMGUI_DIR)/imgui_impl_sdlrenderer3.cpp
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
 UNAME_S := $(shell uname -s)
@@ -25,20 +19,13 @@ CXXFLAGS += -Wl,--gc-sections -Wl,--strip-all -g -Wall -Wextra -std=c++23
 
 LIBS =
 
-##---------------------------------------------------------------------
-## BUILD FLAGS PER PLATFORM
-##---------------------------------------------------------------------
-
-ifeq ($(UNAME_S), Linux) #LINUX
+ifeq ($(UNAME_S), Linux)
 	ECHO_MESSAGE = "Linux"
 	LIBS += -ldl `pkg-config sdl3 --libs`
 
 	CXXFLAGS += `pkg-config sdl3 --cflags`
 	CFLAGS = $(CXXFLAGS)
 endif
-##---------------------------------------------------------------------
-## BUILD RULES
-##---------------------------------------------------------------------
 
 %.o:%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
